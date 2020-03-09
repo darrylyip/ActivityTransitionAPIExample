@@ -1,0 +1,2 @@
+rootProject.name='Activity Transition API Example'
+include ':app'
