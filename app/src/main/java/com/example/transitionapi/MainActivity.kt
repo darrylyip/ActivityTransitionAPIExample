@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -58,7 +59,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var pendingIntent: PendingIntent
-    private var transitionsReceiver: TransitionsReceiver = TransitionsReceiver()
+    private var localTransitionsReceiver = LocalTransitionsReceiver()
     private var logFragment: LogFragment? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,37 +69,41 @@ class MainActivity : AppCompatActivity() {
         logFragment = supportFragmentManager.findFragmentById(R.id.log_fragment) as LogFragment?
         activityTrackingEnabled = false
 
-        val intent = Intent(TRANSITIONS_RECEIVER_ACTION)
-        pendingIntent = PendingIntent.getBroadcast(this@MainActivity, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        // setup intent to be handled by external BroadcastReceiver
+//        val intent = Intent(this, TransitionsReceiver::class.java)
+//        intent.action = TransitionsReceiver.INTENT_ACTION
+//        pendingIntent = PendingIntent.getBroadcast(applicationContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
 
-        // The receiver listens for the PendingIntent above that is triggered by the system when an
-        // activity transition occurs.
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            transitionsReceiver,
-            IntentFilter(TRANSITIONS_RECEIVER_ACTION)
-        )
+        // setup local intent
+        val intent = Intent(TransitionsReceiver.INTENT_ACTION)
+        pendingIntent = PendingIntent.getBroadcast(applicationContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
         printToScreen("App initialized.")
     }
 
-    override fun onResume() {
-        super.onResume()
-
-        if (!activityTrackingEnabled) {
-            initTracking()
-        }
+    override fun onStart() {
+        super.onStart()
+        registerReceiver(localTransitionsReceiver, IntentFilter(TransitionsReceiver.INTENT_ACTION))
     }
 
-    override fun onPause() { // TODO: Disable activity transitions when user leaves the app.
+//    override fun onResume() {
+//        super.onResume()
+//
+//        if (!activityTrackingEnabled) {
+//            initTracking()
+//        }
+//    }
+
+    override fun onPause() {
         if (activityTrackingEnabled) {
             disableActivityTransitions()
         }
         super.onPause()
     }
 
-    override fun onStop() { // TODO: Unregister activity transition receiver when user leaves the app.
-        if (transitionsReceiver != null) {
-            LocalBroadcastManager.getInstance(this).unregisterReceiver(transitionsReceiver)
-        }
+    override fun onStop() {
+//        LocalBroadcastManager.getInstance(this).unregisterReceiver(localTransitionsReceiver)
+        unregisterReceiver(localTransitionsReceiver)
         super.onStop()
     }
 
@@ -108,9 +113,12 @@ class MainActivity : AppCompatActivity() {
      */
     private fun enableActivityTransitions() {
         Log.d(TAG, "enableActivityTransitions()")
-        val request = ActivityTransitionRequest(activityTransitions)
-        // Register for Transitions Updates.
-        val task: Task<Void> = ActivityRecognition.getClient(this).requestActivityTransitionUpdates(request, pendingIntent)
+
+        // Register for Transitions Updates using Transition API
+        // val request = ActivityTransitionRequest(activityTransitions)
+        // val task: Task<Void> = ActivityRecognition.getClient(this).requestActivityTransitionUpdates(request, pendingIntent)
+        // Register for activity using Activity API
+        val task: Task<Void> = ActivityRecognition.getClient(this).requestActivityUpdates(3000, pendingIntent)
         task.addOnSuccessListener {
             activityTrackingEnabled = true
             printToScreen("Transitions Api was successfully registered.")
@@ -128,7 +136,8 @@ class MainActivity : AppCompatActivity() {
     private fun disableActivityTransitions() {
         Log.d(TAG, "disableActivityTransitions()")
         ActivityRecognition.getClient(this)
-            .removeActivityTransitionUpdates(pendingIntent)
+            // .removeActivityTransitionUpdates(pendingIntent)
+            .removeActivityUpdates(pendingIntent)
             .addOnSuccessListener {
                 activityTrackingEnabled = false
                 printToScreen("Transitions successfully unregistered.")
@@ -167,33 +176,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun onClickEnableOrDisableActivityRecognition(view: View) {
+        initTracking()
+    }
+
     private fun printToScreen(message: String) {
         logFragment?.logView?.println(message)
         Log.d(TAG, message)
     }
 
-    /**
-     * Handles intents from from the Transitions API.
-     */
-    inner class TransitionsReceiver : BroadcastReceiver() {
+    inner class LocalTransitionsReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             Log.d(TAG, "onReceive")
-            if (!TextUtils.equals(TRANSITIONS_RECEIVER_ACTION, intent.action)) {
+            if (!TextUtils.equals(TransitionsReceiver.INTENT_ACTION, intent.action)) {
                 printToScreen("Received an unsupported action in TransitionsReceiver: action = ${intent.action}")
                 return
             }
 
-            if (ActivityTransitionResult.hasResult(intent)) {
-                ActivityTransitionResult.extractResult(intent)?.let { result ->
-                    for (event in result.transitionEvents) {
-                        val info =
-                            "Transition: ${toActivityString(event.activityType)} (${toTransitionType(
-                                event.transitionType
-                            )}) ${SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())}"
-                        printToScreen(info)
-                    }
+//            if (ActivityTransitionResult.hasResult(intent)) {
+//                ActivityTransitionResult.extractResult(intent)?.let { result ->
+//                    for (event in result.transitionEvents) {
+//                        val info =
+//                            "Transition: ${toActivityString(event.activityType)} (${toTransitionType(
+//                                event.transitionType
+//                            )}) ${SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())}"
+//                        printToScreen(info)
+//                    }
+//                }
+//            } else
+            if (ActivityRecognitionResult.hasResult(intent)) {
+                ActivityRecognitionResult.extractResult(intent)?.let { result ->
+                    printToScreen("*** $result")
+//                    for (detectedActivity in result.probableActivities) {
+//                        val info =
+//                            "Activity: ${toActivityString(detectedActivity.type)} (${detectedActivity.confidence}) ${SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())}"
+//                        printToScreen(info)
+//                    }
                 }
-
             }
         }
     }
@@ -201,14 +220,11 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
 
-        // Action fired when transitions are triggered.
-        private const val TRANSITIONS_RECEIVER_ACTION =
-            "com.example.transitionapi.TRANSITIONS_RECEIVER_ACTION"
-
         private fun toActivityString(activity: Int): String {
             return when (activity) {
                 DetectedActivity.STILL -> "STILL"
                 DetectedActivity.WALKING -> "WALKING"
+                DetectedActivity.ON_FOOT -> "ON_FOOT"
                 else -> "UNKNOWN"
             }
         }
