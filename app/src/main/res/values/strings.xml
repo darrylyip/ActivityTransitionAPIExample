@@ -6,5 +6,6 @@
     <string name="details_message_activity_permission_rational">This app\'s experience requires access to your phone\'s activity transitions to display changes from walking to standing still.</string>
     <string name="no_thanks_activity_permission_rational">No Thanks</string>
     <string name="continue_activity_permission_rational">Continue</string>
-    <string name="enable_disable_button_activity_recognition">Enable/Disable Activity Recognition</string>
+    <string name="enable_disable_button_activity_recognition">Enable/Disable ACTIVITY Recognition</string>
+    <string name="enable_disable_button_transition_recognition">Enable/Disable TRANSITION Recognition</string>
 </resources>

@@ -18,6 +18,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.gms.location.*
 import com.google.android.gms.tasks.Task
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.content_main.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -29,6 +30,7 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     private val runningQOrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
     private var activityTrackingEnabled = false
+    private var mode = Mode.ACTIVITY
     private val activityTransitions: MutableList<ActivityTransition> by lazy {
         val transitions = mutableListOf<ActivityTransition>()
         transitions.add(
@@ -79,20 +81,14 @@ class MainActivity : AppCompatActivity() {
         pendingIntent = PendingIntent.getBroadcast(applicationContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
 
         printToScreen("App initialized.")
+
+        updateBtns()
     }
 
     override fun onStart() {
         super.onStart()
         registerReceiver(localTransitionsReceiver, IntentFilter(TransitionsReceiver.INTENT_ACTION))
     }
-
-//    override fun onResume() {
-//        super.onResume()
-//
-//        if (!activityTrackingEnabled) {
-//            initTracking()
-//        }
-//    }
 
     override fun onPause() {
         if (activityTrackingEnabled) {
@@ -102,7 +98,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-//        LocalBroadcastManager.getInstance(this).unregisterReceiver(localTransitionsReceiver)
         unregisterReceiver(localTransitionsReceiver)
         super.onStop()
     }
@@ -113,19 +108,23 @@ class MainActivity : AppCompatActivity() {
      */
     private fun enableActivityTransitions() {
         Log.d(TAG, "enableActivityTransitions()")
-
-        // Register for Transitions Updates using Transition API
-        // val request = ActivityTransitionRequest(activityTransitions)
-        // val task: Task<Void> = ActivityRecognition.getClient(this).requestActivityTransitionUpdates(request, pendingIntent)
-        // Register for activity using Activity API
-        val task: Task<Void> = ActivityRecognition.getClient(this).requestActivityUpdates(3000, pendingIntent)
+        val task: Task<Void> = if (mode == Mode.TRANSITION) {
+            // Register for Transitions Updates using Transition API
+            val request = ActivityTransitionRequest(activityTransitions)
+            ActivityRecognition.getClient(this).requestActivityTransitionUpdates(request, pendingIntent)
+        } else {
+            // Register for activity using Activity API
+            ActivityRecognition.getClient(this).requestActivityUpdates(3000, pendingIntent)
+        }
         task.addOnSuccessListener {
             activityTrackingEnabled = true
+            updateBtns()
             printToScreen("Transitions Api was successfully registered.")
         }
         task.addOnFailureListener { e ->
             printToScreen("Transitions Api could NOT be registered: $e")
             Log.e(TAG, "Transitions Api could NOT be registered: $e")
+            updateBtns()
         }
     }
 
@@ -135,17 +134,22 @@ class MainActivity : AppCompatActivity() {
      */
     private fun disableActivityTransitions() {
         Log.d(TAG, "disableActivityTransitions()")
-        ActivityRecognition.getClient(this)
-            // .removeActivityTransitionUpdates(pendingIntent)
-            .removeActivityUpdates(pendingIntent)
-            .addOnSuccessListener {
-                activityTrackingEnabled = false
-                printToScreen("Transitions successfully unregistered.")
-            }
-            .addOnFailureListener { e ->
-                printToScreen("Transitions could not be unregistered: $e")
-                Log.e(TAG, "Transitions could not be unregistered: $e")
-            }
+        val task: Task<Void> = if (mode == Mode.TRANSITION) {
+            ActivityRecognition.getClient(this).removeActivityTransitionUpdates(pendingIntent)
+        } else {
+            ActivityRecognition.getClient(this).removeActivityUpdates(pendingIntent)
+        }
+
+        task.addOnSuccessListener {
+            activityTrackingEnabled = false
+            updateBtns()
+            printToScreen("Transitions successfully unregistered.")
+        }
+        .addOnFailureListener { e ->
+            printToScreen("Transitions could not be unregistered: $e")
+            updateBtns()
+            Log.e(TAG, "Transitions could not be unregistered: $e")
+        }
     }
 
     /**
@@ -164,6 +168,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initTracking() {
+        printToScreen("MODE: ${mode.name}")
         if (activityRecognitionPermissionApproved()) {
             if (activityTrackingEnabled) {
                 disableActivityTransitions()
@@ -177,7 +182,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun onClickEnableOrDisableActivityRecognition(view: View) {
+        mode = Mode.ACTIVITY
         initTracking()
+    }
+
+    fun onClickEnableOrDisableTransitionRecognition(view: View) {
+        mode = Mode.TRANSITION
+        initTracking()
+    }
+
+    private fun updateBtns() {
+        if (activityTrackingEnabled) {
+            if (mode == Mode.ACTIVITY) {
+                btnActivity.isEnabled = true
+                btnTransition.isEnabled = false
+            } else {
+                btnActivity.isEnabled = false
+                btnTransition.isEnabled = true
+            }
+        } else {
+            btnActivity.isEnabled = true
+            btnTransition.isEnabled = true
+        }
+
     }
 
     private fun printToScreen(message: String) {
@@ -193,25 +220,28 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-//            if (ActivityTransitionResult.hasResult(intent)) {
-//                ActivityTransitionResult.extractResult(intent)?.let { result ->
-//                    for (event in result.transitionEvents) {
-//                        val info =
-//                            "Transition: ${toActivityString(event.activityType)} (${toTransitionType(
-//                                event.transitionType
-//                            )}) ${SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())}"
-//                        printToScreen(info)
-//                    }
-//                }
-//            } else
-            if (ActivityRecognitionResult.hasResult(intent)) {
-                ActivityRecognitionResult.extractResult(intent)?.let { result ->
-                    printToScreen("*** $result")
+            if (mode == Mode.TRANSITION) {
+                if (ActivityTransitionResult.hasResult(intent)) {
+                    ActivityTransitionResult.extractResult(intent)?.let { result ->
+                        for (event in result.transitionEvents) {
+                            val info =
+                                "Transition: ${toActivityString(event.activityType)} (${toTransitionType(
+                                    event.transitionType
+                                )}) ${SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())}"
+                            printToScreen(info)
+                        }
+                    }
+                }
+            } else {
+                if (ActivityRecognitionResult.hasResult(intent)) {
+                    ActivityRecognitionResult.extractResult(intent)?.let { result ->
+                        printToScreen("*** $result")
 //                    for (detectedActivity in result.probableActivities) {
 //                        val info =
 //                            "Activity: ${toActivityString(detectedActivity.type)} (${detectedActivity.confidence}) ${SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())}"
 //                        printToScreen(info)
 //                    }
+                    }
                 }
             }
         }
@@ -219,6 +249,10 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+
+        private enum class Mode {
+            ACTIVITY, TRANSITION
+        }
 
         private fun toActivityString(activity: Int): String {
             return when (activity) {
