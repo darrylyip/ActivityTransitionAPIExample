@@ -10,6 +10,8 @@
     <!-- Required for 29+. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -44,6 +46,8 @@
                 <action android:name="com.example.transitionapi.TRANSITIONS_RECEIVER_ACTION"/>
             </intent-filter>
         </receiver>
+
+        <service android:name=".ActivityRecorderService" android:exported="false" />
     </application>
 
 </manifest>

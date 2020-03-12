@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.text.TextUtils
 import android.util.Log
+import com.google.android.gms.location.ActivityRecognitionResult
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionResult
 import com.google.android.gms.location.DetectedActivity
@@ -16,14 +17,15 @@ import java.util.*
  */
 class TransitionsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        Log.d(TAG, "onReceive")
+//        Log.d(TAG, "onReceive")
         if (!TextUtils.equals(INTENT_ACTION, intent.action)) {
             Log.d(TAG,"Received an unsupported action in TransitionsReceiver: action = ${intent.action}")
             return
         }
 
         if (ActivityTransitionResult.hasResult(intent)) {
-            ActivityTransitionResult.extractResult(intent)?.let { result ->
+            val result = ActivityTransitionResult.extractResult(intent)
+            result?.run {
                 for (event in result.transitionEvents) {
                     val info =
                         "Transition: ${toActivityString(event.activityType)} (${toTransitionType(
@@ -32,7 +34,16 @@ class TransitionsReceiver : BroadcastReceiver() {
                     Log.d(TAG, info)
                 }
             }
-
+        } else if (ActivityRecognitionResult.hasResult(intent)) {
+            val result = ActivityRecognitionResult.extractResult(intent)
+            result?.run {
+//                Log.d(TAG, "*** $result")
+//                    for (detectedActivity in result.probableActivities) {
+//                        val info =
+//                            "Activity: ${toActivityString(detectedActivity.type)} (${detectedActivity.confidence}) ${SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())}"
+//                        printToScreen(info)
+//                    }
+            }
         }
     }
 

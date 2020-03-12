@@ -8,4 +8,12 @@
     <string name="continue_activity_permission_rational">Continue</string>
     <string name="enable_disable_button_activity_recognition">Enable/Disable ACTIVITY Recognition</string>
     <string name="enable_disable_button_transition_recognition">Enable/Disable TRANSITION Recognition</string>
+
+    <string name="channel_id">info-alerts</string>
+    <string name="channel_name">Informational Alerts</string>
+    <string name="channel_description">Low importance informational alerts</string>
+
+    <string name="notification_title">Activity Transition API Example Service</string>
+    <string name="notification_message">Recording Walk</string>
+    <string name="ticker_text">Ticker Text</string>
 </resources>
